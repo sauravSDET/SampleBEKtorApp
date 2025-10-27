@@ -1,0 +1,272 @@
+name: 🛡️ Security Scanning & Vulnerability Assessment
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '21'
+
+jobs:
+  # 🔍 Dependency Vulnerability Scanning
+  dependency-scan:
+    name: 🔍 Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 📦 Cache dependency-check database
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/dependency-check-data
+          key: ${{ runner.os }}-dependency-check-${{ hashFiles('**/build.gradle.kts') }}
+          restore-keys: |
+            ${{ runner.os }}-dependency-check-
+
+      - name: 🔍 Run OWASP Dependency Check
+        run: ./gradlew dependencyCheckAnalyze
+
+      - name: 📊 Upload Dependency Check Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: build/reports/dependency-check/
+
+      - name: 🚨 Check for High/Critical Vulnerabilities
+        run: |
+          if [ -f "build/reports/dependency-check/dependency-check-report.xml" ]; then
+            CRITICAL=$(grep -c 'severity="CRITICAL"' build/reports/dependency-check/dependency-check-report.xml || echo "0")
+            HIGH=$(grep -c 'severity="HIGH"' build/reports/dependency-check/dependency-check-report.xml || echo "0")
+            
+            echo "🔍 Found $CRITICAL critical and $HIGH high severity vulnerabilities"
+            
+            if [ "$CRITICAL" -gt "0" ] || [ "$HIGH" -gt "5" ]; then
+              echo "🚨 Security threshold exceeded! Critical: $CRITICAL, High: $HIGH"
+              exit 1
+            fi
+          fi
+
+  # 🐳 Container Security Scanning
+  container-scan:
+    name: 🐳 Container Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 🏗️ Build Application
+        run: ./gradlew :ktor-server:shadowJar
+
+      - name: 🐳 Build Docker Image
+        run: |
+          cd ktor-server
+          docker build -t ktor-backend:security-scan .
+
+      - name: 🔍 Run Trivy Container Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ktor-backend:security-scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📊 Upload Trivy SARIF Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 🔍 Run Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+
+      - name: 📊 Upload Trivy Filesystem SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+
+  # 🔐 Secret Scanning
+  secret-scan:
+    name: 🔐 Secret & Credential Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Run TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: 🔍 Run GitLeaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 🧪 Security Unit Tests
+  security-tests:
+    name: 🧪 Security Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 🧪 Run Security Tests
+        run: ./gradlew securityTest --continue
+
+      - name: 📋 Upload Security Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-test-results
+          path: build/reports/tests/securityTest/
+
+  # 🌐 DAST (Dynamic Application Security Testing)
+  dast-scan:
+    name: 🌐 Dynamic Security Testing
+    runs-on: ubuntu-latest
+    needs: [dependency-scan]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 🚀 Start Application
+        run: |
+          ./gradlew :ktor-server:run &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+          
+          # Wait for application to start
+          timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
+
+      - name: 🕷️ Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.10.0
+        with:
+          target: 'http://localhost:8080'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+
+      - name: 🛑 Stop Application
+        if: always()
+        run: |
+          if [ ! -z "$APP_PID" ]; then
+            kill $APP_PID || true
+          fi
+
+      - name: 📋 Upload ZAP Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-report
+          path: report_html.html
+
+  # 🔒 Infrastructure Security
+  infrastructure-security:
+    name: 🔒 Infrastructure Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run Checkov IaC Security Scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: dockerfile,kubernetes,github_actions
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+
+      - name: 📊 Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+
+      - name: 🔍 Scan Kubernetes Manifests
+        if: hashFiles('k8s/**/*.yaml') != ''
+        run: |
+          # Install kube-score
+          curl -L https://github.com/zegl/kube-score/releases/download/v1.16.1/kube-score_1.16.1_linux_amd64.tar.gz | tar xz
+          
+          # Scan Kubernetes manifests
+          ./kube-score score k8s/**/*.yaml
+
+  # 📊 Security Summary Report
+  security-summary:
+    name: 📊 Security Summary Report
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, container-scan, secret-scan, security-tests, infrastructure-security]
+    if: always()
+    steps:
+      - name: 📊 Generate Security Summary
+        run: |
+          echo "## 🛡️ Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Check | Status | Severity |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Scan | ${{ needs.dependency-scan.result == 'success' && '✅ Clean' || '⚠️ Issues Found' }} | ${{ needs.dependency-scan.result == 'success' && 'Low' || 'Medium/High' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Container Scan | ${{ needs.container-scan.result == 'success' && '✅ Clean' || '⚠️ Issues Found' }} | ${{ needs.container-scan.result == 'success' && 'Low' || 'Medium/High' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan | ${{ needs.secret-scan.result == 'success' && '✅ Clean' || '❌ Secrets Found' }} | ${{ needs.secret-scan.result == 'success' && 'None' || 'Critical' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Tests | ${{ needs.security-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} | Test Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.infrastructure-security.result == 'success' && '✅ Secure' || '⚠️ Issues Found' }} | Configuration |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔒 Security Policies Enforced" >> $GITHUB_STEP_SUMMARY
+          echo "- **Zero Critical Vulnerabilities**: No critical CVEs allowed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Limited High Vulnerabilities**: Max 5 high severity issues" >> $GITHUB_STEP_SUMMARY
+          echo "- **No Exposed Secrets**: All credentials properly secured" >> $GITHUB_STEP_SUMMARY
+          echo "- **Container Hardening**: Base images scanned and secured" >> $GITHUB_STEP_SUMMARY
+          echo "- **IaC Security**: Infrastructure as Code validated" >> $GITHUB_STEP_SUMMARY

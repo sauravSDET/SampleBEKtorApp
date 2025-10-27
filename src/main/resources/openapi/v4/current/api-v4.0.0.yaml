@@ -1,0 +1,591 @@
+openapi: 3.1.0
+info:
+  title: Sample Ktor Backend API
+  description: |
+    API Version 4.0 - Cloud-Native & AI-Enhanced Platform
+    
+    ## Revolutionary Changes from v3.x
+    - AI-powered recommendations and insights
+    - Serverless function integration
+    - Advanced security with zero-trust architecture
+    - Real-time collaboration features
+    - Cloud-native observability
+    
+    ## API Versioning Strategy
+    - **Header-based**: Use `API-Version: 4.0` header (recommended)
+    - **Path-based**: Use `/api/v4/` in URL path
+    - **Content negotiation**: Use `Accept: application/vnd.api.v4+json`
+    
+    ## Migration & Deprecation
+    - v3.x will be supported for 18 months after v4.0 release
+    - Automated migration tools available
+    - Migration guide: https://docs.example.com/migration/v3-to-v4
+
+  version: 4.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+    url: https://docs.example.com/api/v4
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v4
+    description: Local development server v4
+  - url: https://api-staging.example.com/api/v4
+    description: Staging server v4
+  - url: https://api.example.com/api/v4
+    description: Production server v4
+
+security:
+  - ZeroTrustAuth: []
+  - OAuth2PKCE: [read, write, admin, ai]
+
+paths:
+  /health/advanced:
+    get:
+      summary: AI-enhanced health monitoring
+      operationId: advancedHealthCheckV4
+      tags: [System]
+      responses:
+        '200':
+          description: Comprehensive health status with AI insights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvancedHealthCheckV4'
+
+  /workspaces/{workspaceId}/users:
+    get:
+      summary: List workspace users with AI insights
+      operationId: listWorkspaceUsersV4
+      tags: [Users]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/AdvancedPaginationV4'
+        - $ref: '#/components/parameters/AIFilterParamsV4'
+      responses:
+        '200':
+          description: Workspace users with AI-generated insights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceUsersResponseV4'
+
+  /ai/recommendations/users/{userId}:
+    get:
+      summary: AI-powered user recommendations
+      operationId: getUserRecommendationsV4
+      tags: [AI]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: context
+          in: query
+          schema:
+            type: string
+            enum: [products, connections, content, actions]
+      responses:
+        '200':
+          description: AI-generated recommendations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRecommendationsV4'
+
+  /real-time/collaboration/{sessionId}:
+    get:
+      summary: Real-time collaboration session
+      operationId: getCollaborationSessionV4
+      tags: [Collaboration]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Collaboration session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollaborationSessionV4'
+
+    post:
+      summary: Join collaboration session
+      operationId: joinCollaborationSessionV4
+      tags: [Collaboration]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinSessionRequestV4'
+      responses:
+        '200':
+          description: Successfully joined session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionJoinResponseV4'
+
+  /serverless/functions:
+    post:
+      summary: Deploy serverless function
+      operationId: deployFunctionV4
+      tags: [Serverless]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunctionDeploymentV4'
+      responses:
+        '201':
+          description: Function deployed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionResponseV4'
+
+  /observability/metrics:
+    get:
+      summary: Cloud-native observability metrics
+      operationId: getObservabilityMetricsV4
+      tags: [Observability]
+      parameters:
+        - name: timeRange
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [1h, 6h, 24h, 7d, 30d]
+        - name: metrics
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [performance, errors, usage, security, ai_insights]
+      responses:
+        '200':
+          description: Comprehensive observability data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityMetricsV4'
+
+components:
+  securitySchemes:
+    ZeroTrustAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Zero-trust authentication with continuous verification
+    OAuth2PKCE:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth2/authorize
+          tokenUrl: /oauth2/token
+          scopes:
+            read: Read access
+            write: Write access
+            admin: Administrative access
+            ai: AI features access
+
+  parameters:
+    AdvancedPaginationV4:
+      name: pagination
+      in: query
+      schema:
+        $ref: '#/components/schemas/AdvancedPaginationV4'
+
+    AIFilterParamsV4:
+      name: aiFilter
+      in: query
+      schema:
+        $ref: '#/components/schemas/AIFilterParamsV4'
+
+  schemas:
+    # Workspace and User Management
+    WorkspaceUsersResponseV4:
+      type: object
+      required:
+        - users
+        - pagination
+        - aiInsights
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceUserV4'
+        pagination:
+          $ref: '#/components/schemas/AdvancedPaginationV4'
+        aiInsights:
+          $ref: '#/components/schemas/UserInsightsV4'
+
+    WorkspaceUserV4:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - profile
+        - permissions
+        - activityScore
+        - collaborationMetrics
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        profile:
+          $ref: '#/components/schemas/EnhancedUserProfileV4'
+        permissions:
+          $ref: '#/components/schemas/DynamicPermissionsV4'
+        activityScore:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 100
+        collaborationMetrics:
+          $ref: '#/components/schemas/CollaborationMetricsV4'
+        aiPersonality:
+          $ref: '#/components/schemas/AIPersonalityV4'
+
+    # AI-Enhanced Features
+    AIRecommendationsV4:
+      type: object
+      required:
+        - recommendations
+        - confidence
+        - reasoning
+        - metadata
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationV4'
+        confidence:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 1
+        reasoning:
+          type: string
+          description: AI explanation for recommendations
+        metadata:
+          $ref: '#/components/schemas/AIMetadataV4'
+
+    RecommendationV4:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - description
+        - score
+        - actions
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [product, connection, content, action, insight]
+        title:
+          type: string
+        description:
+          type: string
+        score:
+          type: number
+          format: decimal
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationActionV4'
+        personalizedReason:
+          type: string
+
+    AIPersonalityV4:
+      type: object
+      properties:
+        traits:
+          type: array
+          items:
+            type: string
+        preferences:
+          type: object
+          additionalProperties: true
+        behaviorPatterns:
+          type: array
+          items:
+            $ref: '#/components/schemas/BehaviorPatternV4'
+
+    # Real-time Collaboration
+    CollaborationSessionV4:
+      type: object
+      required:
+        - id
+        - type
+        - participants
+        - status
+        - realTimeData
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [document, whiteboard, video, voice, mixed]
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantV4'
+        status:
+          type: string
+          enum: [active, paused, ended]
+        realTimeData:
+          $ref: '#/components/schemas/RealTimeDataV4'
+        aiModerator:
+          $ref: '#/components/schemas/AIModerator V4'
+
+    ParticipantV4:
+      type: object
+      required:
+        - userId
+        - role
+        - joinedAt
+        - status
+      properties:
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [host, participant, observer, ai_assistant]
+        joinedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [connected, disconnected, away]
+        permissions:
+          type: array
+          items:
+            type: string
+
+    # Serverless Functions
+    FunctionDeploymentV4:
+      type: object
+      required:
+        - name
+        - runtime
+        - code
+        - triggers
+      properties:
+        name:
+          type: string
+        runtime:
+          type: string
+          enum: [kotlin, java, python, nodejs, go]
+        code:
+          type: string
+          description: Base64 encoded function code
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/FunctionTriggerV4'
+        environment:
+          type: object
+          additionalProperties:
+            type: string
+        resources:
+          $ref: '#/components/schemas/ResourceLimitsV4'
+
+    FunctionResponseV4:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - endpoint
+        - deployedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [deploying, active, error, disabled]
+        endpoint:
+          type: string
+          format: uri
+        deployedAt:
+          type: string
+          format: date-time
+        metrics:
+          $ref: '#/components/schemas/FunctionMetricsV4'
+
+    # Advanced Observability
+    ObservabilityMetricsV4:
+      type: object
+      required:
+        - timestamp
+        - performance
+        - security
+        - aiInsights
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        performance:
+          $ref: '#/components/schemas/PerformanceMetricsV4'
+        security:
+          $ref: '#/components/schemas/SecurityMetricsV4'
+        aiInsights:
+          $ref: '#/components/schemas/ObservabilityAIInsightsV4'
+        predictiveAnalytics:
+          $ref: '#/components/schemas/PredictiveAnalyticsV4'
+
+    PerformanceMetricsV4:
+      type: object
+      properties:
+        responseTime:
+          $ref: '#/components/schemas/MetricDistributionV4'
+        throughput:
+          type: number
+        errorRate:
+          type: number
+          format: percentage
+        availability:
+          type: number
+          format: percentage
+        apdex:
+          type: number
+          format: decimal
+
+    SecurityMetricsV4:
+      type: object
+      properties:
+        threatDetections:
+          type: integer
+        blockedRequests:
+          type: integer
+        securityScore:
+          type: number
+          format: decimal
+        vulnerabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/VulnerabilityV4'
+
+    # Advanced Health Check
+    AdvancedHealthCheckV4:
+      type: object
+      required:
+        - status
+        - version
+        - timestamp
+        - aiHealth
+        - predictiveAlerts
+      properties:
+        status:
+          type: string
+          enum: [optimal, good, degraded, critical]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        aiHealth:
+          $ref: '#/components/schemas/AIHealthStatusV4'
+        predictiveAlerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictiveAlertV4'
+        systemIntelligence:
+          $ref: '#/components/schemas/SystemIntelligenceV4'
+
+    AIHealthStatusV4:
+      type: object
+      properties:
+        modelPerformance:
+          type: number
+          format: percentage
+        trainingStatus:
+          type: string
+          enum: [current, retraining, outdated]
+        dataQuality:
+          type: number
+          format: percentage
+        predictionAccuracy:
+          type: number
+          format: percentage
+
+    # Common Utility Schemas
+    AdvancedPaginationV4:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+        cursor:
+          type: string
+          description: Cursor for cursor-based pagination
+        estimatedTotal:
+          type: integer
+          description: AI-estimated total for large datasets
+
+    AIFilterParamsV4:
+      type: object
+      properties:
+        intelligentSearch:
+          type: string
+          description: AI-powered semantic search
+        similarityThreshold:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 1
+        contextualFilters:
+          type: object
+          additionalProperties: true
+        personalizedRanking:
+          type: boolean
+

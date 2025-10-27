@@ -1,0 +1,384 @@
+name: 🚀 Hyperscale API-First CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '21'
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=4
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  # 🔍 Static Analysis & Security
+  security-analysis:
+    name: 🛡️ Security & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-home-cache-cleanup: true
+
+      - name: 🔍 Run Detekt Analysis
+        run: ./gradlew detekt
+
+      - name: 📊 Upload Detekt SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: build/reports/detekt/detekt.sarif
+
+      - name: 🛡️ Run Security Audit
+        run: ./gradlew dependencyCheckAnalyze
+
+      - name: 📋 Upload Security Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            build/reports/detekt/
+            build/reports/dependency-check/
+
+  # 🧪 Unit Tests - Fast Feedback Loop
+  unit-tests:
+    name: 🧪 Unit Tests (Shift-Left)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [domain, application-core, infrastructure, ktor-server]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 🏃‍♂️ Run Unit Tests
+        run: ./gradlew :${{ matrix.module }}:unitTest --continue
+        timeout-minutes: 5
+
+      - name: 📊 Generate Unit Test Coverage
+        run: ./gradlew :${{ matrix.module }}:jacocoUnitTestReport
+
+      - name: 📋 Upload Unit Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results-${{ matrix.module }}
+          path: |
+            ${{ matrix.module }}/build/reports/tests/unitTest/
+            ${{ matrix.module }}/build/reports/jacoco/jacocoUnitTestReport/
+
+  # 🔗 Integration Tests - Infrastructure Validation
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      kafka:
+        image: confluentinc/cp-kafka:latest
+        env:
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        ports:
+          - 9092:9092
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 🔗 Run Integration Tests
+        run: ./gradlew integrationTest --continue
+        env:
+          POSTGRES_URL: jdbc:postgresql://localhost:5432/test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+        timeout-minutes: 15
+
+      - name: 📊 Generate Integration Test Coverage
+        run: ./gradlew jacocoIntegrationTestReport
+
+      - name: 📋 Upload Integration Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: |
+            build/reports/tests/integrationTest/
+            build/reports/jacoco/jacocoIntegrationTestReport/
+
+  # 🌐 API Contract Tests - Schema Validation
+  api-contract-tests:
+    name: 🌐 API Contract & Compatibility Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 📦 Setup buf CLI
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔍 Validate Protobuf Schemas
+        run: buf lint
+
+      - name: 🔄 Check Schema Compatibility
+        run: buf breaking --against '.git#branch=main'
+        if: github.event_name == 'pull_request'
+
+      - name: 🌐 Run API Contract Tests
+        run: ./gradlew apiTest --continue
+        timeout-minutes: 10
+
+      - name: 📝 Validate OpenAPI Specification
+        run: ./gradlew validateApiContract
+
+      - name: 🔄 Check API Compatibility
+        run: ./gradlew checkApiCompatibility
+        if: github.event_name == 'pull_request'
+
+      - name: 📋 Upload API Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-contract-test-results
+          path: |
+            build/reports/tests/apiTest/
+            build/reports/api-compatibility/
+
+  # 🎯 Performance & Load Tests
+  performance-tests:
+    name: 🎯 Performance Tests
+    runs-on: ubuntu-latest
+    needs: [integration-tests, api-contract-tests]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 🎯 Run Performance Tests
+        run: ./gradlew performanceTest --continue
+        timeout-minutes: 20
+
+      - name: 📊 Generate Performance Report
+        run: ./gradlew generatePerformanceReport
+
+      - name: 📋 Upload Performance Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-test-results
+          path: build/reports/performance/
+
+  # 📊 Code Quality & Coverage Analysis
+  sonarqube-analysis:
+    name: 📊 SonarQube Analysis
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, security-analysis]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 📥 Download Unit Test Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: unit-test-results-*
+          merge-multiple: true
+
+      - name: 📥 Download Integration Test Results
+        uses: actions/download-artifact@v4
+        with:
+          name: integration-test-results
+
+      - name: 📥 Download Security Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: security-reports
+
+      - name: 🧪 Run All Tests for Coverage
+        run: ./gradlew test jacocoAggregatedReport
+
+      - name: 📊 SonarQube Scan
+        run: ./gradlew sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # 🐳 Build & Security Scan
+  build-and-scan:
+    name: 🐳 Build & Container Security
+    runs-on: ubuntu-latest
+    needs: [unit-tests, security-analysis]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'corretto'
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: 🏗️ Build Application
+        run: ./gradlew build -x test
+
+      - name: 🐳 Build Docker Image
+        run: |
+          cd ktor-server
+          docker build -t ktor-backend:${{ github.sha }} .
+
+      - name: 🔍 Scan Docker Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ktor-backend:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📊 Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 📋 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            */build/libs/
+            ktor-server/Dockerfile
+
+  # 🚀 Deployment Readiness Check
+  deployment-readiness:
+    name: 🚀 Deployment Readiness
+    runs-on: ubuntu-latest
+    needs: [sonarqube-analysis, build-and-scan, api-contract-tests]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ✅ Verify Quality Gates
+        run: |
+          echo "✅ All quality gates passed!"
+          echo "🧪 Unit Tests: Passed"
+          echo "🔗 Integration Tests: Passed"
+          echo "🌐 API Contract Tests: Passed"
+          echo "🛡️ Security Analysis: Passed"
+          echo "📊 Code Quality: Passed"
+          echo "🐳 Container Security: Passed"
+
+      - name: 🏷️ Create Release Tag
+        if: github.event_name == 'push'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a "v${{ github.run_number }}" -m "Release v${{ github.run_number }}"
+          git push origin "v${{ github.run_number }}"
+
+  # 📈 Test Results Summary
+  test-summary:
+    name: 📈 Test Results Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, api-contract-tests, sonarqube-analysis]
+    if: always()
+    steps:
+      - name: 📊 Generate Test Summary
+        run: |
+          echo "## 🧪 Test Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Type | Status | Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} | Unit Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} | Integration Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Contract Tests | ${{ needs.api-contract-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} | Contract Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | ${{ needs.sonarqube-analysis.result == 'success' && '✅ Passed' || '❌ Failed' }} | Overall Quality |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Focus Areas" >> $GITHUB_STEP_SUMMARY
+          echo "- **Shift-Left Testing**: Unit tests run in < 5 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "- **API-First**: Contract validation ensures backward compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security**: Static analysis and container scanning" >> $GITHUB_STEP_SUMMARY
+          echo "- **Quality**: Separate unit/integration coverage tracking" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,465 @@
+openapi: 3.0.3
+info:
+  title: Sample Ktor Backend API
+  description: |
+    API Version 2.0 - Enhanced User Management & Order Processing
+    
+    ## Breaking Changes from v1.x
+    - User creation now requires additional profile fields
+    - Order status enum has new values
+    - New authentication mechanisms
+    
+    ## API Versioning Strategy
+    - **Header-based**: Use `API-Version: 2.0` header (recommended)
+    - **Path-based**: Use `/api/v2/` in URL path
+    - **Content negotiation**: Use `Accept: application/vnd.api.v2+json`
+    
+    ## Deprecation Notice
+    - v1.x will be deprecated 6 months after v2.0 release
+    - Migration guide: https://docs.example.com/migration/v1-to-v2
+
+  version: 2.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+    url: https://docs.example.com/api/v2
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v2
+    description: Local development server v2
+  - url: https://api-staging.example.com/api/v2
+    description: Staging server v2
+  - url: https://api.example.com/api/v2
+    description: Production server v2
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+  - OAuth2: [read, write]
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint v2
+      description: Enhanced health check with dependency details
+      operationId: healthCheckV2
+      tags: [System]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckV2'
+
+  /users:
+    get:
+      summary: List users with enhanced filtering
+      description: Returns paginated users with advanced filtering options
+      operationId: listUsersV2
+      tags: [Users]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by user status
+          schema:
+            $ref: '#/components/schemas/UserStatusV2'
+        - name: createdAfter
+          in: query
+          description: Filter users created after this date
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersListResponseV2'
+
+    post:
+      summary: Create user with enhanced profile
+      description: Creates user with required profile information
+      operationId: createUserV2
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequestV2'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseV2'
+
+  /orders:
+    get:
+      summary: List orders with advanced tracking
+      operationId: listOrdersV2
+      tags: [Orders]
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdersListResponseV2'
+
+    post:
+      summary: Create order with enhanced workflow
+      operationId: createOrderV2
+      tags: [Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequestV2'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponseV2'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /oauth2/token
+          scopes:
+            read: Read access
+            write: Write access
+
+  schemas:
+    # Enhanced User schemas for v2
+    CreateUserRequestV2:
+      type: object
+      required:
+        - email
+        - firstName
+        - lastName
+        - profile
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        profile:
+          $ref: '#/components/schemas/UserProfileV2'
+
+    UserProfileV2:
+      type: object
+      required:
+        - dateOfBirth
+        - phoneNumber
+      properties:
+        dateOfBirth:
+          type: string
+          format: date
+        phoneNumber:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+        address:
+          $ref: '#/components/schemas/AddressV2'
+        preferences:
+          $ref: '#/components/schemas/UserPreferencesV2'
+
+    AddressV2:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        country:
+          type: string
+
+    UserPreferencesV2:
+      type: object
+      properties:
+        language:
+          type: string
+          enum: [en, es, fr, de]
+        timezone:
+          type: string
+        notifications:
+          type: object
+          properties:
+            email:
+              type: boolean
+            sms:
+              type: boolean
+            push:
+              type: boolean
+
+    UserResponseV2:
+      type: object
+      required:
+        - id
+        - email
+        - firstName
+        - lastName
+        - status
+        - profile
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        status:
+          $ref: '#/components/schemas/UserStatusV2'
+        profile:
+          $ref: '#/components/schemas/UserProfileV2'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserStatusV2:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - SUSPENDED
+        - PENDING_VERIFICATION
+        - DEACTIVATED
+
+    UsersListResponseV2:
+      type: object
+      required:
+        - users
+        - pagination
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponseV2'
+        pagination:
+          $ref: '#/components/schemas/PaginationV2'
+
+    # Enhanced Order schemas for v2
+    CreateOrderRequestV2:
+      type: object
+      required:
+        - userId
+        - items
+        - shippingAddress
+      properties:
+        userId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemRequestV2'
+        shippingAddress:
+          $ref: '#/components/schemas/AddressV2'
+        billingAddress:
+          $ref: '#/components/schemas/AddressV2'
+
+    OrderItemRequestV2:
+      type: object
+      required:
+        - productId
+        - quantity
+        - unitPrice
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          type: number
+          format: decimal
+
+    OrderResponseV2:
+      type: object
+      required:
+        - id
+        - userId
+        - status
+        - items
+        - totalAmount
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OrderStatusV2'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemResponseV2'
+        totalAmount:
+          type: number
+          format: decimal
+        shippingAddress:
+          $ref: '#/components/schemas/AddressV2'
+        trackingNumber:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    OrderItemResponseV2:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+          format: decimal
+        totalPrice:
+          type: number
+          format: decimal
+
+    OrderStatusV2:
+      type: string
+      enum:
+        - PENDING
+        - CONFIRMED
+        - PROCESSING
+        - SHIPPED
+        - DELIVERED
+        - CANCELLED
+        - RETURNED
+        - REFUNDED
+
+    OrdersListResponseV2:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderResponseV2'
+        pagination:
+          $ref: '#/components/schemas/PaginationV2'
+
+    # Enhanced system schemas
+    HealthCheckV2:
+      type: object
+      required:
+        - status
+        - version
+        - timestamp
+        - dependencies
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, DEGRADED]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyHealthV2'
+
+    DependencyHealthV2:
+      type: object
+      required:
+        - name
+        - status
+        - responseTime
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [UP, DOWN]
+        responseTime:
+          type: integer
+          description: Response time in milliseconds
+        details:
+          type: object
+
+    PaginationV2:
+      type: object
+      required:
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean

@@ -1,0 +1,523 @@
+openapi: 3.0.3
+info:
+  title: Sample Ktor Backend API
+  description: |
+    API Version 3.0 - Microservices Architecture & Event-Driven Design
+    
+    ## Major Changes from v2.x
+    - GraphQL integration for complex queries
+    - Event-driven architecture with webhooks
+    - Advanced analytics and reporting endpoints
+    - Multi-tenant support
+    
+    ## API Versioning Strategy
+    - **Header-based**: Use `API-Version: 3.0` header (recommended)
+    - **Path-based**: Use `/api/v3/` in URL path
+    - **Content negotiation**: Use `Accept: application/vnd.api.v3+json`
+    
+    ## Deprecation Timeline
+    - v2.x will be deprecated 12 months after v3.0 release
+    - Migration guide: https://docs.example.com/migration/v2-to-v3
+
+  version: 3.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+    url: https://docs.example.com/api/v3
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v3
+    description: Local development server v3
+  - url: https://api-staging.example.com/api/v3
+    description: Staging server v3
+  - url: https://api.example.com/api/v3
+    description: Production server v3
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+  - OAuth2: [read, write, admin]
+
+paths:
+  /health:
+    get:
+      summary: Advanced health check with metrics
+      operationId: healthCheckV3
+      tags: [System]
+      responses:
+        '200':
+          description: Service health with detailed metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckV3'
+
+  /tenants/{tenantId}/users:
+    get:
+      summary: List users within tenant
+      operationId: listTenantUsersV3
+      tags: [Users]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/PaginationParams'
+        - $ref: '#/components/parameters/FilterParams'
+      responses:
+        '200':
+          description: Tenant users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantUsersResponseV3'
+
+    post:
+      summary: Create user within tenant
+      operationId: createTenantUserV3
+      tags: [Users]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantUserRequestV3'
+      responses:
+        '201':
+          description: Tenant user created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantUserResponseV3'
+
+  /analytics/users:
+    get:
+      summary: User analytics and insights
+      operationId: getUserAnalyticsV3
+      tags: [Analytics]
+      parameters:
+        - name: dateRange
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 1y]
+        - name: metrics
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [registrations, activity, retention, engagement]
+      responses:
+        '200':
+          description: User analytics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAnalyticsV3'
+
+  /events/webhooks:
+    post:
+      summary: Register webhook endpoint
+      operationId: registerWebhookV3
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRegistrationV3'
+      responses:
+        '201':
+          description: Webhook registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponseV3'
+
+  /graphql:
+    post:
+      summary: GraphQL endpoint for complex queries
+      operationId: graphqlV3
+      tags: [GraphQL]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphQLRequestV3'
+      responses:
+        '200':
+          description: GraphQL response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphQLResponseV3'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /oauth2/token
+          scopes:
+            read: Read access
+            write: Write access
+            admin: Administrative access
+
+  parameters:
+    PaginationParams:
+      name: pagination
+      in: query
+      schema:
+        $ref: '#/components/schemas/PaginationParamsV3'
+
+    FilterParams:
+      name: filter
+      in: query
+      schema:
+        $ref: '#/components/schemas/FilterParamsV3'
+
+  schemas:
+    # Multi-tenant User schemas
+    CreateTenantUserRequestV3:
+      type: object
+      required:
+        - email
+        - firstName
+        - lastName
+        - profile
+        - roles
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        profile:
+          $ref: '#/components/schemas/UserProfileV3'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantRoleV3'
+
+    TenantUserResponseV3:
+      type: object
+      required:
+        - id
+        - tenantId
+        - email
+        - firstName
+        - lastName
+        - status
+        - profile
+        - roles
+        - permissions
+        - createdAt
+        - lastActivity
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        status:
+          $ref: '#/components/schemas/UserStatusV3'
+        profile:
+          $ref: '#/components/schemas/UserProfileV3'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantRoleV3'
+        permissions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastActivity:
+          type: string
+          format: date-time
+
+    UserProfileV3:
+      type: object
+      required:
+        - dateOfBirth
+        - phoneNumber
+        - timezone
+      properties:
+        dateOfBirth:
+          type: string
+          format: date
+        phoneNumber:
+          type: string
+        timezone:
+          type: string
+        address:
+          $ref: '#/components/schemas/AddressV3'
+        preferences:
+          $ref: '#/components/schemas/UserPreferencesV3'
+        socialProfiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialProfileV3'
+
+    TenantRoleV3:
+      type: object
+      required:
+        - id
+        - name
+        - permissions
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    UserStatusV3:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - SUSPENDED
+        - PENDING_VERIFICATION
+        - DEACTIVATED
+        - ARCHIVED
+
+    # Analytics schemas
+    UserAnalyticsV3:
+      type: object
+      required:
+        - dateRange
+        - metrics
+        - insights
+      properties:
+        dateRange:
+          $ref: '#/components/schemas/DateRangeV3'
+        metrics:
+          $ref: '#/components/schemas/UserMetricsV3'
+        insights:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsInsightV3'
+        trends:
+          $ref: '#/components/schemas/TrendAnalysisV3'
+
+    UserMetricsV3:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        activeUsers:
+          type: integer
+        newRegistrations:
+          type: integer
+        retentionRate:
+          type: number
+          format: percentage
+        engagementScore:
+          type: number
+          format: decimal
+
+    # Event-driven schemas
+    WebhookRegistrationV3:
+      type: object
+      required:
+        - url
+        - events
+        - secret
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum: [user.created, user.updated, order.created, order.status_changed]
+        secret:
+          type: string
+          description: Webhook secret for signature verification
+        retryPolicy:
+          $ref: '#/components/schemas/RetryPolicyV3'
+
+    WebhookResponseV3:
+      type: object
+      required:
+        - id
+        - url
+        - events
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, paused, failed]
+        createdAt:
+          type: string
+          format: date-time
+
+    # GraphQL schemas
+    GraphQLRequestV3:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: GraphQL query string
+        variables:
+          type: object
+          description: Query variables
+        operationName:
+          type: string
+          description: Operation name for queries with multiple operations
+
+    GraphQLResponseV3:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Query result data
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphQLErrorV3'
+        extensions:
+          type: object
+          description: Additional response metadata
+
+    # Enhanced system schemas
+    HealthCheckV3:
+      type: object
+      required:
+        - status
+        - version
+        - timestamp
+        - dependencies
+        - metrics
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, DEGRADED]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyHealthV3'
+        metrics:
+          $ref: '#/components/schemas/SystemMetricsV3'
+
+    SystemMetricsV3:
+      type: object
+      properties:
+        cpuUsage:
+          type: number
+          format: percentage
+        memoryUsage:
+          type: number
+          format: percentage
+        diskUsage:
+          type: number
+          format: percentage
+        activeConnections:
+          type: integer
+        requestsPerSecond:
+          type: number
+
+    # Common utility schemas
+    PaginationParamsV3:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 0
+          default: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        sort:
+          type: array
+          items:
+            type: string
+
+    FilterParamsV3:
+      type: object
+      properties:
+        search:
+          type: string
+        status:
+          type: array
+          items:
+            type: string
+        dateRange:
+          $ref: '#/components/schemas/DateRangeV3'
+
+    DateRangeV3:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
