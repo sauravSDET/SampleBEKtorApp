@@ -181,7 +181,7 @@ Historical documents and stakeholder materials:
 ## 🆘 Getting Help
 
 ### Questions About Testing?
-- Review [Comprehensive Test Strategy](./testing-strategy/COMPREHENSIVE_TEST_STRATEGY.md)
+- Review [Test Strategy](./testing-strategy/TEST_STRATEGY.md)
 - Check [Developer Narrative](./testing-strategy/DEVELOPER_NARRATIVE_TESTING_FLOW.md)
 - Consult [Test Catalog](./testing-strategy/TEST_CATALOG.md)
 
@@ -193,7 +193,7 @@ Historical documents and stakeholder materials:
 ### Questions About Implementation?
 - Review [Project Structure Audit](./implementation/PROJECT_STRUCTURE_AUDIT.md)
 - Check [LKGB Status](./implementation/LKGB-STATUS.md)
-- See [Implementation Complete](./implementation/IMPLEMENTATION_COMPLETE.md)
+- See [Implementation Summary](./implementation/IMPLEMENTATION_SUMMARY.md)
 
 ---
 
