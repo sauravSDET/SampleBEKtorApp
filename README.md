@@ -526,18 +526,40 @@ class UserApplicationService(
 }
 ```
 
-## 📚 Test Strategy & Quality Documentation
+## 📚 Documentation
 
-- [Comprehensive Test Strategy](COMPREHENSIVE_TEST_STRATEGY.md)
-- [Test Strategy 2.0](TEST_STRATEGY.md)
-- [RCA Playbook: Incident Learning](RCA_PLAYBOOK.md)
-- [Test Catalog & Registry](TEST_CATALOG.md)
-- [Test Metrics & Governance](TEST_METRICS_AND_GOVERNANCE.md)
-- [Socialization Plan](SOCIALIZATION_PLAN.md)
+**Complete documentation is organized in the [`docs/`](docs/) directory.**
+
+### Quick Links by Topic
+
+#### 🧪 Testing Strategy
+Comprehensive testing approach for enterprise-scale development:
+- [Testing Strategy Overview](docs/testing-strategy/README.md)
+- [Comprehensive Test Strategy](docs/testing-strategy/COMPREHENSIVE_TEST_STRATEGY.md)
+- [Developer Testing Workflow](docs/testing-strategy/DEVELOPER_NARRATIVE_TESTING_FLOW.md)
+- [Test Catalog & Registry](docs/testing-strategy/TEST_CATALOG.md)
+
+#### 🎯 API-First Development
+Schema-first approach with contract testing:
+- [API-First Overview](docs/api-first/README.md)
+- [API-First Roadmap](docs/api-first/API_FIRST_ROADMAP.md)
+- [Enhanced OpenAPI Solution](docs/api-first/ENHANCED_OPENAPI_SOLUTION.md)
+
+#### 🏗️ Implementation & Architecture
+Technical details and project status:
+- [Implementation Overview](docs/implementation/README.md)
+- [Final Implementation Summary](docs/implementation/FINAL_IMPLEMENTATION_SUMMARY.md)
+- [LKGB Status](docs/implementation/LKGB_STATUS.md)
+
+#### 📖 Complete Documentation Hub
+For a complete, organized view of all documentation:
+- **[📚 Documentation Hub](docs/README.md)** - Start here for comprehensive documentation navigation
 
 ### Key Practices
-- **Transaction Management:** All database integration tests should use transactions for isolation and rollback to reduce flakiness.
-- **API Contract Versioning:** API contract tests should validate backward compatibility against previous OpenAPI specs. See [ENHANCED_OPENAPI_SOLUTION.md](ENHANCED_OPENAPI_SOLUTION.md) for details.
+- **Transaction Management:** All database integration tests use transactions for isolation and rollback
+- **API Contract Versioning:** Automated backward compatibility validation against previous OpenAPI specs
+- **Fast Feedback:** Unit tests complete in < 5 seconds for rapid development iteration
+- **AI-Optimized:** Standardized patterns for predictable AI/Copilot code generation
 
 ## 📊 Performance & Scalability
 

@@ -1,3 +1,0 @@
-# Identification of Acceptance Tests for Fury
-
-Reference: Flows owned by Allocation (https://www.notion.so/Flows-owned-by-Allocation-1c39c6eaaa6d800f936ce498fc6bf1a7?pvs=21)

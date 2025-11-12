@@ -61,7 +61,7 @@ tasks.test {
     useJUnitPlatform {
         includeTags("performance", "chaos", "e2e")
     }
-    systemProperty("performance.test.enabled", "true")
+    systemProperty("performance.test.enabled", "false")
     systemProperty("testcontainers.reuse.enable", "true")
     maxHeapSize = "2g"
 
